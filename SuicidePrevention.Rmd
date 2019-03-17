@@ -1,0 +1,722 @@
+---
+title: "Suicide Prevention - Data Science For Business Final Project"
+author: "Mark D. Meschi"
+date: "March 17, 2019"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+## Ideation 
+
+Suicide is an international plague which impacts not only the victim, but the family and friends of the victim. 
+**What if we could use data science to help predict people at risk of suicide to target mental health resources?** 
+
+<div class = centered > 
+![](C:\Users\Mark\OneDrive\Documents\idea2.jpg)
+</div>
+
+
+
+## Data Used
+
+The data used for this work was found on the Kaggle website: <https://www.kaggle.com/russellyates88/suicide-rates-overview-1985-to-2016#master.csv>
+
+It contains data from 1985 to 2016 with socio-economic information with suicide rates by year and country. 
+The ultimate sources of the information compiled on the Kaggle website follow: 
+
+* United Nations Development Program. 
+* World Bank 
+* Suicide in the Twenty-First Century (also on Kaggle)
+* World Health Organization
+
+
+## Architecture 
+
+The architecture for my work on this project is relatively simple.  I don't have access to Visio, so I was unable to draw a nice picture.  However, the following was done from an architectural standpoint: 
+
+* Retrieve .csv file from the internet
+* Pull in .csv file into Rstudio 
+* Pull in .csv file into Microsoft Power BI
+* Extract data from Rstudio into excel for massaging, then reimport into RStudio
+
+```{r setUpForPlots, echo=FALSE, comment=NA, include=FALSE, cache=TRUE}
+require(ggplot2)
+require(tidyr)
+require(dplyr)
+require(xts)
+require(lubridate)
+require(rpart)
+require(ISLR)
+require(randomForest)
+require(rpart)
+require(caret)
+require(e1071)
+require(tree)
+require(caret)
+library(rpart.plot)
+
+
+
+# read in the Kaggle file 
+file <- "C:/Users/Mark/Downloads/master.csv"
+dfMasterRecords <- read.table(file, sep = ",", header = TRUE, stringsAsFactors = FALSE)
+
+
+# Add quantile feature to categorize the suicides per 100k metric 
+quantileForSuicideRate <- quantile(dfMasterRecords$suicidesPer100k, c(.1, .2, .3, .4, .5, .6, .7, .8, .9))
+quantileForSuicideRate
+
+# Category for four Quantiles of suicide rate
+funcCreateCategoricalFeature <- function(suicidePerOneHunK) {
+    if (suicidePerOneHunK <= .92)
+        retCat <- "A"
+    
+    if (suicidePerOneHunK > .92 & suicidePerOneHunK <= 5.99)
+        retCat <- "B" 
+    
+    if (suicidePerOneHunK > 5.99 & suicidePerOneHunK <= 16.62)
+        retCat <- "C"
+    
+    if (suicidePerOneHunK > 16.62 & suicidePerOneHunK <= 224.97)
+        retCat <- "D"
+    
+    return(retCat)
+}
+# Category for 10 quantiles of suicide rate
+funcCreateCategoricalFeatureQuantilesCat <- function(rate) {
+    if (rate <= .41)
+        retCat <- "A"
+    
+    if (rate > .41 & rate <= 1.6)
+        retCat <- "B" 
+    
+    if (rate > 1.6 & rate <= 3.54)
+        retCat <- "C"
+    
+    if (rate > 3.54 & rate <= 5.99)
+        retCat <- "D"
+    
+    if (rate > 5.99 & rate <= 9.09)
+        retCat <- "E"
+    
+    if (rate > 9.09 & rate <= 13.563)
+        retCat <- "F"
+    
+    if (rate > 13.563 & rate <= 20.53)
+        retCat <- "G"
+    
+    if (rate > 20.53 & rate <= 33.291)
+        retCat <- "H"
+    
+    if (rate > 33.291)
+        retCat <- "I"
+    
+    
+    return(retCat)
+}
+# Binary variable for suicide rate protection 
+funcCreateCategoricalFeatureQuantilesCat2 <- function(rate) {
+
+    
+    if (rate <= 33.291)
+        retCat <- "B"
+    
+    if (rate > 33.291)
+        retCat <- "A"
+    
+    
+    return(retCat)
+}
+# add gdp per capita feature to help with decision tree 
+funcCreateCategoricalFeatureGdpPerCapita <- function(gdpPerCapita) {
+    if (gdpPerCapita < 3447)
+        retCat <- "A"
+    
+    if (gdpPerCapita >= 3447 & gdpPerCapita <= 9372)
+        retCat <- "B" 
+    
+    if (gdpPerCapita > 9372 & gdpPerCapita <= 24874)
+        retCat <- "C"
+    
+    if (gdpPerCapita > 24874 & gdpPerCapita <= 126352)
+        retCat <- "D"
+    
+    return(retCat)
+}
+# add
+funcCreateCategoricalFeature <- function(suicidePerOneHunK) {
+    if (suicidePerOneHunK <= .92)
+        retCat <- "A"
+    
+    if (suicidePerOneHunK > .92 & suicidePerOneHunK <= 5.99)
+        retCat <- "B" 
+    
+    if (suicidePerOneHunK > 5.99 & suicidePerOneHunK <= 16.62)
+        retCat <- "C"
+    
+    if (suicidePerOneHunK > 16.62 & suicidePerOneHunK <= 224.97)
+        retCat <- "D"
+    
+    return(retCat)
+}
+#
+funcCreateCategoricalFeatureGeo <- function(Country) {
+
+    
+    if (Country %in% c("Cabo Verde", "Mauritius", "Seychelles", "South Africa"))
+        retCat <- "Africa"
+    
+    if (Country %in% c("Australia", "Fiji", "Japan", "Kiribati", "Macau", "Maldives", "Mongolia",
+                       "New Zealand", "Philippines", "Republic of Korea", "Singapore", "Sri Lanka", "Thailand"))
+        retCat <- "Asia"
+    
+    if (Country %in% c("Aruba", "Bahamas", "Barbados", "Cuba", "Dominica", "Grenada", "Jamaica",
+                       "Puerto Rico", "Saint Kitts and Nevis", "Sain Lucia", "Saint Vincent and Grenadines", 
+                       "Trinidad and Tobago", "Antigua and Barbuda", "Saint Lucia"))
+        retCat <- "Carribean"
+    
+    if (Country %in% c("Belarus", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic", 
+                       "Estonia","Lithuania", "Montenegro", "Poland", "Romania", "Russian Federation", 
+                       "Serbia", "Slovakia", "Slovenia", "Ukraine", "Albania", "Hungary", "Latvia"))
+        retCat <- "Eastern Europe"
+    
+    if (Country %in% c("Armenia", "Azerbaijan", "Cyprus", "Georgia", "Israel", "Kazakhstan", 
+                       "Turkey", "Turkmenistan", "Kyrgyzstan"))
+        retCat <- "Eurasia"
+    
+    if (Country %in% c("Bahrain", "Kuwait", "Oman", "Qatar", "United Arab Emirates"))
+        retCat <- "Middle East"
+    
+    if (Country %in% c("Canada", "Mexico", "Panama", "United States"))
+        retCat <- "North America"
+    
+    if (Country %in% c("Argentina", "Belize", "Brazil", "Chile", "Colombia", "Costa Rica", "Ecuador", 
+                       "El Salvador", "Guatemala", "Guyana", "Nicaragua", "Paraguay", "Suriname", 
+                       "Uruguay", "Uzbekistan"))
+        retCat <- "South America"
+    
+    if (Country %in% c("Austria", "Belgium", "Denmark", "Finland", "France", "Germany", "Greece", 
+                       "Iceland", "Ireland", "Italy", "Luxembourg", "Malta", "Netherlands", "Norway", 
+                       "Portugal", "San Marino", "Spain", "Sweden", "Switzerland", "United Kingdom"))
+        retCat <- "Western Europe"
+     
+    
+    return(retCat)
+}
+
+dfMasterRecords <- dfMasterRecords %>% mutate(geographicRegion = 
+                                                  sapply(dfMasterRecords$ï..country, funcCreateCategoricalFeatureGeo))
+
+
+
+dfMasterRecords <- dfMasterRecords %>% mutate(Suicide.100k.cat = 
+                                                  sapply(dfMasterRecords$suicidesPer100k, funcCreateCategoricalFeature))
+
+dfMasterRecords <- dfMasterRecords %>% mutate(suicideBy100KCat2 = 
+                                                  sapply(dfMasterRecords$suicidesPer100k, funcCreateCategoricalFeatureQuantilesCat2))
+
+dfMasterRecords <- dfMasterRecords %>% mutate(gdpPerCaptiaCat = 
+                                                  sapply(dfMasterRecords$gdp_per_capita, funcCreateCategoricalFeatureGdpPerCapita))
+
+
+summary(dfMasterRecords$suicidesPer100k)
+# The median amount of suicides per 100K population is mucher lower
+# than the mean 
+#  
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#0.00    0.92    5.99   12.82   16.62  224.97 
+
+# do a density plot of our label 
+
+plotDensity <- ggplot(dfMasterRecords, aes(x=dfMasterRecords$suicidesPer100k)) +
+    geom_density(color="darkblue", fill="lightblue") + theme_bw() + labs(x = "Suicides Per 100k Population", y = "Desnity",
+                                       title = "Density Plot of Suicides per 100K population By Country")
+plotDensity
+
+# plot by time 
+dfSuicidesByYear <- dfMasterRecords %>% group_by(year) %>% summarise(suidicdesPer100k = sum(suicidesPer100k))
+
+linePlotSuicidesByYear <- ggplot(dfSuicidesByYear, aes(x=year, y=dfSuicidesByYear$suidicdesPer100k)) + 
+    geom_line() + theme_bw() + labs(x = "Year", y = "Suicides Per 100k Population",
+                                    title = "Line Chart of Suicides Per 100K by Year")
+
+linePlotSuicidesByYear
+
+# massive drop off in 2016 - perhaps fewer countries contributed data that year 
+dfSuicidesByYearByCountry <- dfMasterRecords %>% group_by(year,ï..country,gdpPerCaptiaCat) %>% summarise(suidciesPer100K = sum(suicidesPer100k))
+
+# do a count of reporting countries by year 
+dfCountOfReportingCountriesByYear <- dfSuicidesByYearByCountry %>% group_by(year) %>% summarise(countries=n())
+linePlotReportingCountries <- ggplot(dfCountOfReportingCountriesByYear, aes(x=year, y=countries)) + geom_line() +
+    theme_bw() + labs(x = "Year", y = "Reporting Countries",
+                      title = "Reporting Countries Per Year")
+                                
+linePlotReportingCountries
+
+
+# assess impact of the year on the suicide by 100k label, we have to take the mean of the suicides per 100k by year and plot that 
+dfMeanSuicidesPer100kByYear <- dfMasterRecords %>% group_by(year) %>% summarise(meanSuicidesPer100k = mean(suicidesPer100k))
+
+#plot mean suicides per 100 k by year to assess the impact of the year feature 
+linePlotMeanSuicidesPer100kByYear <- ggplot(dfMeanSuicidesPer100kByYear, aes(x=year, y=meanSuicidesPer100k)) + geom_line() +
+    theme_bw() + labs(x = "Year", y = "Mean suicides Per 100k",
+                      title = "Mean Suicides Per 100K Per Year Between 1985 and 2016")
+
+
+linePlotMeanSuicidesPer100kByYear
+
+## Looks like year IS a significant factor
+
+
+# suicides by country 
+dfMeanSuicideRateByCountry <- dfMasterRecords %>% group_by(dfMasterRecords$ï..country) %>% summarise(meanSuicides = mean(suicidesPer100k))
+dfMeanSuicideRateByCountry
+
+dfMeanSuicideRateByCountry$`dfMasterRecords$ï..country`
+
+dfHighMeanSuicideByCountry <- dfMeanSuicideRateByCountry %>% filter(meanSuicides > 25.6 )
+dfLowMeanSuicideByCountry <- dfMeanSuicideRateByCountry %>% filter(meanSuicides < 1.5)
+
+
+
+names(dfHighMeanSuicideByCountry) <- c("country", "mean")
+names(dfLowMeanSuicideByCountry) <- c("country", "mean")
+
+
+# bar chart of 10 countries with the highest mean suicide rate and 10 countries with the lowest mean suicide rate 
+barHighPlotCountries <- ggplot(dfHighMeanSuicideByCountry, aes(x=country, y = mean )) + 
+    geom_bar(aes(fill = country), stat = "identity") + theme_bw() + labs(title = "Ten Countries with the Highest Suicide Rates") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+barHighPlotCountries
+
+barLowPlotCountries <- ggplot(dfLowMeanSuicideByCountry, aes(x=country, y = mean)) + 
+    geom_bar(aes(fill = country), stat = "identity") + theme_bw() + labs(title = "Ten Countries with the lowest Suicide Rates") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+barLowPlotCountries
+
+#suidcide rate by geographic regio 
+dfMeanSuicideRateByGeographicRegion <- dfMasterRecords %>% group_by(dfMasterRecords$geographicRegion) %>%
+                                                                        summarise(meanSuicides = mean(suicidesPer100k))
+names(dfMeanSuicideRateByGeographicRegion) <- c("GeographicRegion", "Mean")
+
+barGeo <- ggplot(dfMeanSuicideRateByGeographicRegion, aes(x=GeographicRegion, y = Mean )) + 
+    geom_bar(aes(fill = GeographicRegion), stat = "identity") + theme_bw() + labs(title = "Suicide Rate By Region") + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+barGeo
+
+
+
+
+# do facet wrap line scatterplot by country of suicide rate by year 
+plotSuicidesByYearByCountry <- ggplot(dfSuicidesByYearByCountry, aes(x = year, y = suidciesPer100K)) + geom_point() +
+                                        stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfSuicidesByYearByCountry$ï..country) + theme_bw()
+plotSuicidesByYearByCountry
+
+# scatter plot suicide rate by year for countries in the 1st quartile of gdp by year
+# GDP of 3,447 or less per person per year 
+dfGdpA <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'A')
+
+
+plotSuicidesByYearByCountry1Quartile <- ggplot(dfGdpA,  aes(x = year, y = suidciesPer100K)) + geom_point() +
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpA$ï..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita < 3,447")
+
+plotSuicidesByYearByCountry1Quartile
+
+# scatter plot suicide rate by year for countries in the 2nd quartile of gdp by year
+# GDP between 3,447 and 9,372 per person per year
+dfGdpB <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'B')
+
+plotSuicidesByYearByCountry2Quartile <- ggplot(dfGdpB,  aes(x = year, y = suidciesPer100K)) + geom_point() +
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpB$ï..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita >3,447 and <= 9,372")
+
+plotSuicidesByYearByCountry2Quartile
+
+
+# scatter plot suicide rate by year for countries in the 3rd quartile of gdp by year
+# GDP between 9,372 and 24,874 per person per year
+dfGdpC <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'C')
+
+plotSuicidesByYearByCountry3Quartile <- ggplot(dfGdpC,  aes(x = year, y = suidciesPer100K)) + geom_point() +
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpC$ï..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita > 9,372 and <= 24,874")
+
+plotSuicidesByYearByCountry3Quartile
+
+# scatter plot suicide rate by year for countries in the 3rd quartile of gdp by year
+# GDP between 9,372 and 24,874 per person per year
+dfGdpD <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'D')
+
+plotSuicidesByYearByCountry4Quartile <- ggplot(dfGdpD,  aes(x = year, y = suidciesPer100K)) + geom_point() +
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpD$ï..country) + theme_bw() + labs(title = "Suicide rate by country and year with GDP Per Capita > 126,352")
+
+plotSuicidesByYearByCountry4Quartile
+
+
+
+# scatterplot to determine impact of continuous variables 
+# View how time and gdp per capita have impact on suicide rat
+plotScatterHDI <- ggplot(dfMasterRecords, aes(dfMasterRecords$HDI.for.year, dfMasterRecords$suicidesPer100k)) +
+                             geom_point(aes(color=age, shape=sex)) + theme_bw() + 
+                             labs(x = "HDI", y = "Suicides per 100k", title = "Impact of Human Development Index")
+
+plotScatterHDI
+
+# scatterplot by Gdp per capita 
+
+plotScatterGdpPerCapita <- ggplot(dfMasterRecords, aes(dfMasterRecords$gdp_per_capita, dfMasterRecords$suicidesPer100k)) +
+                            geom_point(aes(color=age, shape=sex)) + theme_bw() + 
+                            labs(x = "GDP Per Capita", y = "Suicides per 100k", title = "Impact of GDP per capita") 
+plotScatterGdpPerCapita
+
+# Impact of population on suicide rate by doing a scatterplot 
+plotScatterPopulation <- ggplot(dfMasterRecords, aes(dfMasterRecords$population, y = dfMasterRecords$suicidesPer100k)) + 
+    geom_point(aes(color = age, shape = sex)) + theme_bw() + labs(x = "Population", y = "Suicides Per 100k", title = "Impact of Populaton")
+
+plotScatterPopulation
+
+# Impact on rate by total gdp 
+plotScatterTotalGdp <- ggplot(dfMasterRecords, aes(gdp_for_year, suicidesPer100k)) + geom_point(aes(color = age, shape = sex)) +
+    theme_bw() + labs(x = "GDP per Year", y = "Suicides Per 100k", title = "Impact of Total GDP on suicide Rate") 
+plotScatterTotalGdp
+
+
+# 101 different countries 
+vectUniqueCountries <- unique(dfMasterRecords$ï..country)
+
+# throw out the outliers (>50 per 100k rate)
+dfOutlierRemoved <- dfMasterRecords %>% filter(suicidesPer100k <=51 )
+dfOutlierRemoved
+
+# set up factors to evaluate 
+dfMasterRecords$sex <- as.factor(dfMasterRecords$sex)
+dfMasterRecords$age <- as.factor(dfMasterRecords$age)
+dfMasterRecords$generation <- as.factor((dfMasterRecords$generation))
+dfMasterRecords$suicideBy100KCat2 <- as.factor((dfMasterRecords$suicideBy100KCat2))
+dfMasterRecords$ï..country <- as.factor((dfMasterRecords$ï..country))
+dfMasterRecords$geographicRegion <- as.factor(dfMasterRecords$geographicRegion)
+dfMasterRecords$Suicide.100k.cat <- as.factor(dfMasterRecords$Suicide.100k.cat)
+dfMasterRecords$year <- as.factor(dfMasterRecords$year)
+
+
+#box plot suicides per 100K by Sex 
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$sex, 
+        main = "Suicides Per 100k by Sex")
+
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$age, 
+        main = "Suicides per 100K by Age Range")
+
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$generation, 
+        main = "Suicides Per 100k by Generation")
+
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$geographicRegion, 
+        main = "Suicides Per 100k by Geographic Region")
+
+
+######################################
+######################################
+# Decision Tree (classification)
+
+# choose features for classification in decision tree
+# Features include the following: 
+# year, sex, age, population, gdp per capita, generation, geographicRegion, suicideBY100KCat2
+
+dfDt1 <- dfMasterRecords %>% select(-HDI.for.year, -country.year, -suicides_no, -gdp_for_year, -Suicide.100k.cat, 
+                                          -suicidesPer100k, -gdpPerCaptiaCat)
+
+
+# set up for repeated cross validation
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats =3)
+set.seed(1122016)
+
+# divide data into test and 
+intrain <- createDataPartition(y = dfDt1$suicideBy100KCat2, p= 0.7, list = FALSE)
+training <- dfDt1[intrain,]
+testing <- dfDt1[-intrain,]
+
+# use information gain for splits for training model 
+dtree_fit <- train(suicideBy100KCat2 ~., data = training, method = "rpart",
+                   parms = list(split = "information"),
+                   trControl=trctrl,
+                   tuneLength = 10)
+
+dtree_fit
+# print out the decisioin tree
+prp(dtree_fit$finalModel, box.palette = "Reds", tweak = 1.2)
+
+# test prediction with trained model 
+test_pred <- predict(dtree_fit, newdata = testing)
+cm <- confusionMatrix(test_pred, testing$suicideBy100KCat2)
+
+# try with gini instead of information gain for dtree
+dtree_fit_gini <- train(suicideBy100KCat2 ~., data = training, method = "rpart",
+                        parms = list(split = "gini"),
+                        trControl=trctrl,
+                        tuneLength = 10)
+
+dtree_fit_gini
+
+prp(dtree_fit_gini$finalModel, box.palette = "Blues", tweak = 1.2)
+
+test_pred_gini <- predict(dtree_fit_gini, newdata = testing)
+
+cm_gini <- confusionMatrix(test_pred_gini, testing$suicideBy100KCat2)
+
+######################################
+######################################
+######################################
+# Random Forest 
+# try a classification random Forest 
+set.seed(99)
+# set training set of 22,976 ~ 80% of observations being evaluated 
+train = sample(1:nrow(dfMasterRecords), 22976)
+
+
+# throw out the HDI index feature and other features
+dfRandomFor <- dfMasterRecords %>% select(-HDI.for.year, -country.year, -year, -suicides_no, -gdp_for_year, -Suicide.100k.cat, 
+                                          -suicidesPer100k, -gdpPerCaptiaCat, -ï..country)
+
+dfRandomFor2 <- dfMasterRecords %>% select(-HDI.for.year, -country.year, -year, -suicides_no, -gdp_for_year, -suicideBy100KCat2, 
+                                           -suicidesPer100k, -gdpPerCaptiaCat, -ï..country)
+
+str(dfRandomFor)
+
+rfSuicideRateCat <- randomForest(suicideBy100KCat2 ~ ., data = dfRandomFor, subset = train)
+
+rfSuicideRateCat
+
+# error rate at 49.27% - perhaps too many categories for predicting.  Also, need to get country in there somehow, perhaps grouping 
+# into geographic region. 
+
+rfSuicideRateCat2 <- randomForest(suicideBy100KCat2 ~ ., data = dfRandomFor, mtry = 4, subset = train, importance = TRUE)
+rfSuicideRateCat2
+
+# mtry = 4 reduced OOB estimate pretty good 3.56 percent 
+rfSuicideRateCat3 <- randomForest(suicideBy100KCat2 ~ ., data = dfRandomFor, mtry = 5, subset = train, importance = TRUE)
+rfSuicideRateCat3
+
+
+
+# try a regular decision tree alone - hopefully it will be able to take factors of > 53 
+dfDecTree <- dfMasterRecords %>% select( -HDI.for.year, -country.year, -suicides_no, -gdp_for_year, -Suicide.100k.cat, -gdpPerCaptiaCat,
+                                         -suicidesPer100k, -gdpPerCaptiaCat)
+
+dtSuicideRateCat2 <- train(suicideBy100KCat2 ~ ., data = dfDecTree, subset = train, method = "rpart" )
+dtSuicideRateCat2
+
+dtSuicideRateCat2_1 = predict(dtSuicideRateCat2, data = dfDecTree)
+table(dtSuicideRateCat2_1, dfDecTree$suicideBy100KCat2)
+
+
+
+
+```
+
+
+
+## Data Analysis 
+
+Use Microsoft Power BI to get a sense of the impact of Countries and age on the Suicide rates. 
+
+<div class = "centered">
+![](C:\Users\Mark\Documents\MapSize2.png)
+
+</div>
+
+## Data Analysis 
+
+```{r densityPlot, comment="", echo=FALSE}
+
+plotDensity
+
+```
+
+###### Min = 0 | 1st Qu. = .92 | Median = 5.99 | Mean = 12.82, 3rd Qu. = 16.62 | Max = 224.97
+
+##Data Analysis 
+
+```{r plot1, comment="", echo=FALSE}
+linePlotSuicidesByYear
+
+```
+
+## Data Analysis 
+
+```{r plot2, comment="", echo=FALSE}
+  linePlotReportingCountries
+```
+
+## Data Analysis 
+
+```{r plot3, comment="", echo=FALSE}
+linePlotMeanSuicidesPer100kByYear
+```
+
+## Data Analysis 
+
+```{r plot4, comment="", echo=FALSE}
+barHighPlotCountries
+
+```
+
+## Data Analysis 
+
+```{r plot5, comment="", echo=FALSE}
+barLowPlotCountries
+
+```
+
+## Data Analysis 
+
+```{r plot6, comment="", echo=FALSE}
+barGeo
+
+```
+
+## Data Analysis 
+```{r plot7, comment="", echo=FALSE}
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$sex, 
+        main = "Suicides Per 100k by Sex")
+
+
+```
+
+## Data Analysis 
+```{r plot8, comment="", echo=FALSE}
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$age, 
+        main = "Suicides per 100K by Age Range")
+
+
+```
+
+## Data Analysis 
+```{r plot9, comment="", echo=FALSE}
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$generation, 
+        main = "Suicides Per 100k by Generation")
+
+
+```
+
+## Data Analysis 
+```{r plot10, comment="", echo=FALSE}
+boxplot(dfMasterRecords$suicidesPer100k ~ dfMasterRecords$generation, 
+        main = "Suicides Per 100k by Generation")
+
+
+```
+
+
+## Data Analysis 
+```{r plot11, comment="", echo=FALSE}
+ 
+plotSuicidesByYearByCountry
+
+```
+
+## Data Analysis 
+```{r plot12, comment="", echo=FALSE}
+ plotSuicidesByYearByCountry1Quartile
+
+
+```
+
+## Data Analysis 
+```{r plot13, comment="", echo=FALSE}
+ plotSuicidesByYearByCountry2Quartile
+
+
+```
+
+## Data Analysis 
+```{r plot14, comment="", echo=FALSE}
+ plotSuicidesByYearByCountry3Quartile
+
+
+```
+
+
+## Data Analysis 
+```{r plot15, comment="", echo=FALSE}
+ plotSuicidesByYearByCountry4Quartile
+
+
+```
+
+## Data Analysis 
+```{r plot16, comment="", echo=FALSE}
+
+plotScatterHDI
+
+
+```
+
+## Data Analysis 
+```{r plot17, comment="", echo=FALSE}
+ plotScatterGdpPerCapita
+
+
+```
+
+## Data Analysis 
+```{r plot18, comment="", echo=FALSE}
+  
+plotScatterPopulation
+
+```
+
+## Data Analysis 
+```{r plot19, comment="", echo=FALSE}
+  
+plotScatterTotalGdp 
+
+```
+
+
+
+## Data Dictionary 
+
+<div class = "centered">
+![](C:\Users\Mark\Documents\DataDict.png)
+</div>
+
+## Decision Tree 
+
+Use decision tree with cross fold validation with 70% - 30% split between training and testing data 
+
+
+* 10 fold
+* Use Information Gain Criterion 
+* Use Gini Criterion 
+
+
+## Decision Tree Classifier With IG Criterion 
+```{r plot21, comment="", echo=FALSE}
+
+cm$table
+cm$overall
+
+```
+
+## D-Tree Classifier With IG Criterion 
+
+<div class = "centered">
+![](C:\Users\Mark\Documents\IGTree.png)
+</div>
+
+## Decision Tree Classifier with Gini Criterion 
+```{r plot22, comment="", echo=FALSE}
+
+cm_gini$table
+cm_gini$overall
+
+```
+
+## D-Tree Classifier With Gini Criterion
+<div class = "centered">
+![](C:\Users\Mark\Documents\DtreeGini.jpg)
+
+</div>
+## Thank You 
+
+* Questions? 
+
