@@ -718,5 +718,6 @@ cm_gini$overall
 </div>
 ## Thank You 
 
+* Code can be found on github: https://github.com/mdmeschi72/suicidePrevention
 * Questions? 
 
