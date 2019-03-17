@@ -16,7 +16,7 @@ library(rpart.plot)
 
 
 # read in the Kaggle file 
-file <- "C:/Users/Mark/Downloads/master.csv"
+file <- "C:/Users/Mark/SuicidePrevention/master.csv"
 dfMasterRecords <- read.table(file, sep = ",", header = TRUE, stringsAsFactors = FALSE)
 
 
@@ -163,7 +163,7 @@ funcCreateCategoricalFeatureGeo <- function(Country) {
 }
 
 dfMasterRecords <- dfMasterRecords %>% mutate(geographicRegion = 
-                                                  sapply(dfMasterRecords$ï..country, funcCreateCategoricalFeatureGeo))
+                                                  sapply(dfMasterRecords$?..country, funcCreateCategoricalFeatureGeo))
 
 
 
@@ -201,7 +201,7 @@ linePlotSuicidesByYear <- ggplot(dfSuicidesByYear, aes(x=year, y=dfSuicidesByYea
 linePlotSuicidesByYear
 
 # massive drop off in 2016 - perhaps fewer countries contributed data that year 
-dfSuicidesByYearByCountry <- dfMasterRecords %>% group_by(year,ï..country,gdpPerCaptiaCat) %>% summarise(suidciesPer100K = sum(suicidesPer100k))
+dfSuicidesByYearByCountry <- dfMasterRecords %>% group_by(year,?..country,gdpPerCaptiaCat) %>% summarise(suidciesPer100K = sum(suicidesPer100k))
 
 # do a count of reporting countries by year 
 dfCountOfReportingCountriesByYear <- dfSuicidesByYearByCountry %>% group_by(year) %>% summarise(countries=n())
@@ -227,10 +227,10 @@ linePlotMeanSuicidesPer100kByYear
 
 
 # suicides by country 
-dfMeanSuicideRateByCountry <- dfMasterRecords %>% group_by(dfMasterRecords$ï..country) %>% summarise(meanSuicides = mean(suicidesPer100k))
+dfMeanSuicideRateByCountry <- dfMasterRecords %>% group_by(dfMasterRecords$?..country) %>% summarise(meanSuicides = mean(suicidesPer100k))
 dfMeanSuicideRateByCountry
 
-dfMeanSuicideRateByCountry$`dfMasterRecords$ï..country`
+dfMeanSuicideRateByCountry$`dfMasterRecords$?..country`
 
 dfHighMeanSuicideByCountry <- dfMeanSuicideRateByCountry %>% filter(meanSuicides > 25.6 )
 dfLowMeanSuicideByCountry <- dfMeanSuicideRateByCountry %>% filter(meanSuicides < 1.5)
@@ -265,7 +265,7 @@ barGeo
 
 # do facet wrap line scatterplot by country of suicide rate by year 
 plotSuicidesByYearByCountry <- ggplot(dfSuicidesByYearByCountry, aes(x = year, y = suidciesPer100K)) + geom_point() +
-                                        stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfSuicidesByYearByCountry$ï..country) + theme_bw()
+                                        stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfSuicidesByYearByCountry$?..country) + theme_bw()
 plotSuicidesByYearByCountry
 
 # scatter plot suicide rate by year for countries in the 1st quartile of gdp by year
@@ -274,7 +274,7 @@ dfGdpA <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'A')
 
 
 plotSuicidesByYearByCountry1Quartile <- ggplot(dfGdpA,  aes(x = year, y = suidciesPer100K)) + geom_point() +
-    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpA$ï..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita < 3,447")
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpA$?..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita < 3,447")
 
 plotSuicidesByYearByCountry1Quartile
 
@@ -283,7 +283,7 @@ plotSuicidesByYearByCountry1Quartile
 dfGdpB <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'B')
 
 plotSuicidesByYearByCountry2Quartile <- ggplot(dfGdpB,  aes(x = year, y = suidciesPer100K)) + geom_point() +
-    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpB$ï..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita >3,447 and <= 9,372")
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpB$?..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita >3,447 and <= 9,372")
 
 plotSuicidesByYearByCountry2Quartile
 
@@ -293,7 +293,7 @@ plotSuicidesByYearByCountry2Quartile
 dfGdpC <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'C')
 
 plotSuicidesByYearByCountry3Quartile <- ggplot(dfGdpC,  aes(x = year, y = suidciesPer100K)) + geom_point() +
-    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpC$ï..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita > 9,372 and <= 24,874")
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpC$?..country) + theme_bw() + labs(title = "Suicide Rate by country and year with GDP Per Capita > 9,372 and <= 24,874")
 
 plotSuicidesByYearByCountry3Quartile
 
@@ -302,7 +302,7 @@ plotSuicidesByYearByCountry3Quartile
 dfGdpD <- dfSuicidesByYearByCountry %>% filter(gdpPerCaptiaCat == 'D')
 
 plotSuicidesByYearByCountry4Quartile <- ggplot(dfGdpD,  aes(x = year, y = suidciesPer100K)) + geom_point() +
-    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpD$ï..country) + theme_bw() + labs(title = "Suicide rate by country and year with GDP Per Capita > 126,352")
+    stat_smooth(method = "lm", se = FALSE) + facet_wrap(~dfGdpD$?..country) + theme_bw() + labs(title = "Suicide rate by country and year with GDP Per Capita > 126,352")
 
 plotSuicidesByYearByCountry4Quartile
 
@@ -336,7 +336,7 @@ plotScatterTotalGdp
 
 
 # 101 different countries 
-vectUniqueCountries <- unique(dfMasterRecords$ï..country)
+vectUniqueCountries <- unique(dfMasterRecords$?..country)
 
 # throw out the outliers (>50 per 100k rate)
 dfOutlierRemoved <- dfMasterRecords %>% filter(suicidesPer100k <=51 )
@@ -347,7 +347,7 @@ dfMasterRecords$sex <- as.factor(dfMasterRecords$sex)
 dfMasterRecords$age <- as.factor(dfMasterRecords$age)
 dfMasterRecords$generation <- as.factor((dfMasterRecords$generation))
 dfMasterRecords$suicideBy100KCat2 <- as.factor((dfMasterRecords$suicideBy100KCat2))
-dfMasterRecords$ï..country <- as.factor((dfMasterRecords$ï..country))
+dfMasterRecords$?..country <- as.factor((dfMasterRecords$?..country))
 dfMasterRecords$geographicRegion <- as.factor(dfMasterRecords$geographicRegion)
 dfMasterRecords$Suicide.100k.cat <- as.factor(dfMasterRecords$Suicide.100k.cat)
 dfMasterRecords$year <- as.factor(dfMasterRecords$year)
@@ -436,10 +436,10 @@ train = sample(1:nrow(dfMasterRecords), 22976)
 
 # throw out the HDI index feature and other features
 dfRandomFor <- dfMasterRecords %>% select(-HDI.for.year, -country.year, -year, -suicides_no, -gdp_for_year, -Suicide.100k.cat, 
-                                          -suicidesPer100k, -gdpPerCaptiaCat, -ï..country)
+                                          -suicidesPer100k, -gdpPerCaptiaCat, -?..country)
 
 dfRandomFor2 <- dfMasterRecords %>% select(-HDI.for.year, -country.year, -year, -suicides_no, -gdp_for_year, -suicideBy100KCat2, 
-                                           -suicidesPer100k, -gdpPerCaptiaCat, -ï..country)
+                                           -suicidesPer100k, -gdpPerCaptiaCat, -?..country)
 
 str(dfRandomFor)
 
@@ -493,7 +493,7 @@ plot(fit, uniform = TRUE, main = "Calssificaiton Tree for Suicide Prevention")
 text(fit, use.n=TRUE, all=TRUE, cex=.8 )
 
 dfRandomFor <- dfMasterRecords %>% select(-HDI.for.year, -country.year, -suicides_no, -Suicide.100k.cat, 
-                                          -suicidesPer100k, -ï..country)
+                                          -suicidesPer100k, -?..country)
 
 anotherTree <- tree(suicideBy100KCat2 ~., data = dfRandomFor)
 summary(anotherTree)
