@@ -1,6 +1,7 @@
 # add required packages
 # advancing master branch
 # data exploration branch
+# new feature stuff
 require(ggplot2)
 require(tidyr)
 require(dplyr)
