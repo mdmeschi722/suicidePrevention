@@ -3,6 +3,10 @@
 # bug fix test - more git playing
 # data exploration branch
 # new feature stuff
+# this will advance the new branch
+# oh boy - 
+#
+# testing merge conflict in git
 require(ggplot2)
 require(tidyr)
 require(dplyr)
