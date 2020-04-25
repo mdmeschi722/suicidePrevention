@@ -1,6 +1,8 @@
 # add required packages
 # advancing master branch
 # bug fix test - more git playing
+# data exploration branch
+# new feature stuff
 require(ggplot2)
 require(tidyr)
 require(dplyr)
