@@ -7,6 +7,11 @@
 # oh boy - 
 #
 # testing merge conflict in git
+# adding a comment to check into github
+# adding another comment
+
+
+
 require(ggplot2)
 require(tidyr)
 require(dplyr)
